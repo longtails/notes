@@ -1,0 +1,11 @@
+### Persistent Volumes
+
+PersistentVolume子系统为用户和管理员提供一套将系统底层存储细节抽象的api，涉及两类API资源:PersistentVolume和PersistentVolumeClaim.
+
+PersistentVolume(pv)是由集群管理员提供的一种存储，它和node一样是一种集群资源。PVs是一种类似Volumes的存储插件，但是它具有独立于pod的生命周期。PV 的存储实现方式有NFS、iSCSI以及云提供商制定的存储系统。
+
+PersistentVolumeClaim(PVC)是一个存储请求，它类似于pod，pod消耗node资源，而pvc消耗pv资源；Pod能够请求指定级别的cpu和memory资源，pvc可以请求制定大小和获取模式(支持once read/write 和many times read only)的pv。
+
+用户一般会用PVC去申请不同规格的PV，这些不同规格的PV应该集群管理员，这样就为用户屏蔽了底层存储实现的细节，而对应的规格是由另一种资源SotrageClass定义的。
+
+在搭建kafaka/zookeeper集群时，stateful set需要动态绑定pv,一般动态绑定pv是需要云服务提供商的服务，本地需要另做处理。
