@@ -28,3 +28,12 @@ A.next = &LinkedListNode{next: nil};
 B.next = *(B.next).next;
 B.next = nil;
 ```
+
+
+Go程序有数十万个栈，它们有Go调度程序管理，并是种在GC安全点处被抢占。Go调度程序将Go例程多路服用到OS线程上，希望每个HW线程运行一个OS线程。
+
+Go是一种基于传统类C语言的面向值的语言，不是传统大多数运行时托管的面向引用的语言。面向值，有助于外部功能接口，Go有一个快速的基于C和C++的FFI（Foreign Function Interface)，可以通过FFI访问基础功能系统，这样就无需在Go中重新实现C/C++开发的所有功能。
+
+Go采用静态的编译方法，二进制包含整个Runtime。没有JIT(just-in-time compiler)。
+
+Go有两个选项控制GC，分别是GCPercent、MaxHeap。
