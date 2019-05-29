@@ -44,7 +44,6 @@ mid=(left+right)/2 left+right可能溢出
 #include<iostream>
 #include<vector>
 using namespace std;
-
 int getLessIndex(vector<int> arr) {
 	int n=arr.size();
 	if(n==0){
@@ -171,6 +170,36 @@ int main(){
 
 给定一个有序数组arr,其中不含有重复元素，请找满足arr[i]==i条件的最左位置。如果所有位置上的数都不满足条件，返回-1。
 
+```cpp
+#include<iostream>
+#include<vector>
+using namespace std;
+int findPos(vector<int> arr, int n) {
+	if(n==0||arr[0]>0||arr[n-1]<n-1){
+		return -1;
+	}
+	int l=0,r=n-1,m=0,pos=0;
+	//这个等号，可以用两个元素的例子模拟一下测试出来
+	while(l<=r){
+		m=(l+r)/2;
+		if(arr[m]>=m){
+			if(arr[m]==m)
+				pos=m;
+			r=m-1;
+		}else{
+			l=m+1;
+		}
+	}
+	return pos;
+}
+int main(){
+	int v[]={-1,0,2,3};
+	vector<int> arr;
+	arr.assign(v,v+sizeof(v)/sizeof(int));
+	cout<<findPos(arr,arr.size())<<endl;
+	return 0;
+}
+```
 
 #### 案例五
 
@@ -178,6 +207,53 @@ int main(){
 
 分析：找到最左节点确定树的高度h1， 找右子树最左节点，确定高度h2，若h1>h2,则可以用公式计算右子树的节点个数;然后对左子树递归进行同样的操作，最终仅剩一个节点可以结束。
 
+```cpp
+#include<iostream>
+using namespace std;
+struct TreeNode {
+    int val;
+    struct TreeNode *left;
+    struct TreeNode *right;
+    TreeNode(int x) :
+            val(x), left(NULL), right(NULL) {
+    }
+};
+int getLH(TreeNode* root){
+	int h=0;
+	while(root!=NULL){
+		h++;
+		root=root->left;
+	}
+	return h;
+}
+int count(TreeNode* root) {
+	if(root==NULL){
+		return 0;
+	}
+	int c=1;
+	int lh=getLH(root->left);
+	int rh=getLH(root->right);
+	//利用满二叉树公式计算节点个数，其他分支再次递归计算即可
+	if(lh+1==rh){
+		c+=(2<<(rh-1))-1;
+	}else{
+		c+=count(root->right);
+	}
+	c+=count(root->left);
+	return c;
+}
+int main(){
+	TreeNode r(0);r.left=NULL;r.right=NULL;
+	TreeNode n1(1),n2(2),n3(3),n4(4),n5(5),n6(6),n7(7);
+	r.left=&n1;r.right=&n2;
+	n1.left=&n3;n1.right=&n4;
+	n2.left=&n5;n2.right=&n6;
+	n3.left=&n7;
+	cout<<count(&r)<<endl;
+	return 0;
+}
+li
+```
 
 #### 案例六
 
@@ -185,5 +261,27 @@ int main(){
 
 将指数按二进制方式展开，10^(10_2)=10^(01_2)*10^(01_2)=10^(01_2+01_2)=10^(10_2),这样按指数位长度次数即可。
 
-
+```cpp
+#include<iostream>
+using namespace std;
+int getPower(int k, int N) {
+	// write code here
+	long long  m=1,mt=k;
+	while(N>0){
+		mt%=1000000007;
+		if(N%2){
+			m*=mt;
+			m=m%1000000007;
+		}
+		N/=2;
+		mt*=mt;//logN的原因
+	}
+	return  m%1000000007;
+}
+int main(){
+	//cout<<getPower(20,7)<<endl;
+	cout<<getPower(2,14876069)<<endl;
+	return 0;
+}
+```
  
