@@ -166,5 +166,4 @@ root@hw1:/home/test# umask
 
 
 
----
-接下来，还有ACL权限、文件特殊权限、不可改变位权限、sudo权限  
+
