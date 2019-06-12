@@ -329,6 +329,18 @@ func instantiate(cmd *cobra.Command, cf *ChaincodeCmdFactory) (*protcommon.Envel
 
 以上的Install和Instantiate均是准备链码和初始化，最后通过以交易背书的方式将安装和实例化请求发送给peer 服务端，最后有peer服务端完成链码的安装和实例化（在peer端启动容器）。
 
+
+
+ 链码容器
+- CORE_PEER_CHAINCODEADDRESS=peer1.org1.example.com:7052
+>CORE_PEER_CHAINCODEADDRESS是chaincode用来链接peer时的地址，也就是peer暴露给chaincode的地址
+CORE_PEER_CHAINCODELISTENADDRESS是peer监听chaincode的地址
+对于容器来说，peer的CHAINCODELISTENADDRESS地址就是peer容器的监听地址，CHAINCODEADDRESS就是peer容器所在宿主机暴露给chaincode的地址
+对于物理机来说，这两者是一样的
+运行chaincode的沙箱(容器)默认是加入host网络，想要与peer处于同一网络，可以设置
+CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=网络名
+
+[参考一个配置](https://github.com/hyperledger/fabric/blob/release-1.1/sampleconfig/core.yaml)
 ---
 上述部分是peer chaincode的命令行客户端部分处理，完整的链码安装和实例化，还需要看peer服务端的处理,待续。
 
