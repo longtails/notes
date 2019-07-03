@@ -1404,11 +1404,12 @@ spec:
 
 
 #### 操作: 
+
 1. Service Account认证方式：
+
 ```bash
 root@node1:~# kubectl create sa tmp  
 serviceaccount/tmp created
-
 root@node1:~# kubectl get sa
 NAME      SECRETS   AGE
 default   1         3d18h
@@ -1418,7 +1419,6 @@ root@node1:~# kubectl get secret
 NAME                  TYPE                                  DATA   AGE
 default-token-wxhvp   kubernetes.io/service-account-token   3      3d18h
 tmp-token-kzbcr       kubernetes.io/service-account-token   3      73s
-
 root@node1:~# kubectl describe sa tmp
 Name:                tmp
 Namespace:           default
@@ -1428,7 +1428,6 @@ Image pull secrets:  <none>
 Mountable secrets:   tmp-token-kzbcr
 Tokens:              tmp-token-kzbcr
 Events:              <none>
-
 #创建测试用namespace cka
 root@node1:~# kubectl create ns cka
 namespace/cka created
@@ -1440,7 +1439,6 @@ kube-node-lease   Active   3d18h
 kube-public       Active   3d18h
 kube-system       Active   3d18h
 root@node1:~# 
-
 #创建在cka namespace下只读pod的role
 root@node1:~# cat role.yaml 
 apiVersion: rbac.authorization.k8s.io/v1
@@ -1457,7 +1455,6 @@ rules:
   - get
   - list
   - watch
-
 #设置user
 root@node1:~# kubectl config set-credentials tmp --token=$(kubectl get secret pod-reader-token-gb8qc -ncka -oyaml |grep token:|awk '{print $2}'|base64 -d)
 User "tmp" set.
@@ -1488,9 +1485,8 @@ users:
 - name: tmp
   user:
     token: eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJja2EiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlY3JldC5uYW1lIjoicG9kLXJlYWRlci10b2tlbi1nYjhxYyIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50Lm5hbWUiOiJwb2QtcmVhZGVyIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQudWlkIjoiOGU3NmJkNjctMTMxNC00NDllLTg1NjItODY2YzVhODliYWViIiwic3ViIjoic3lzdGVtOnNlcnZpY2VhY2NvdW50OmNrYTpwb2QtcmVhZGVyIn0.ov6Ddwj-aVo3z6hXWq1vGwBulEHL-3wfBoK65Ef1rlFZ7qgrtVQoI-y_ZDPQavmtCZlj36Oi26GJME_4dXtDA3opgvkcTr-OPcbIS_BGseE24m5SRcceAcQkWfHKf_dmPhch748G7UKWrKBoZe_0c4-Uc3-o-zAOhqSlcQuRWP0UK7aRIZLEKaDWLNWo3blGHAJIiwdlExb2BS9KOOmf0kcPphp571x7fuHRll4AHELgY8FpNxyPMU4VUshOCB4PXNJ53p__NCwprcf5InIyqkjp5s-AtkBxv9nOUSxX5TOI00DHhPQw55PUMVPfYizwr1TqI5hzkW8NuKICDHtccQ
-
 # 切换context否则还是admin权限
-# 为tmp设置context，cluster设置成和amdmin一样的，负责无法访问k8s api
+# 为tmp设置context，cluster设置成和amdmin一样的，否则无法访问k8s api
 root@node1:~# kubectl config set-context tmp --cluster=kubernetes --user=tmp
 Context "tmp" modified.
 root@node1:~# kubectl config view
@@ -1519,11 +1515,11 @@ users:
     client-key-data: REDACTED
 - name: tmp
 ...
-
 root@node1:~# kubectl config use-context tmp
 Switched to context "tmp".
 root@node1:~# kubectl get pods
-Error from server (Forbidden): pods is forbidden: User "system:serviceaccount:cka:pod-reader" cannot list resource "pods" in API group "" in the namespace "default"
+Error from server (Forbidden): pods is forbidden: User "system:serviceaccount:cka:pod-reader" cannot 
+list resource "pods" in API group "" in the namespace "default"
 root@node1:~# kubectl get pods -ncka
 No resources found.
 root@node1:~# 
