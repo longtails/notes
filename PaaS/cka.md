@@ -514,6 +514,7 @@ kube-scheduler --policy-config-file自定义调度器加载的算法，或者调
 ```
 
 执行kube-scheduler --help查看更多调度器配置项
+
 ```bash
 root@node1:~# kubectl exec -it  kube-scheduler-node1 -n kube-system sh
 # kube-scheduler --help
@@ -1526,6 +1527,7 @@ root@node1:~#
 ```
 
 2. security context:
+
 ```bash
 # securityContext设置
 root@node1:~# cat scdemo.yaml 
@@ -1546,7 +1548,6 @@ spec:
       mountPath: /data/demo
     securityContext:
       privileged: true
-
 root@node1:~# kubectl exec -it security-context-demo   sh
 / # 
 #写数据
@@ -1558,7 +1559,6 @@ sysctl: error reading key 'net.ipv6.conf.default.stable_secret': Input/output er
 sysctl: error reading key 'net.ipv6.conf.eth0.stable_secret': Input/output error
 sysctl: error reading key 'net.ipv6.conf.lo.stable_secret': Input/output error
 net.netfilter.nf_conntrack_tcp_timeout_syn_recv = 70
-
 #将容器改为非特权，用具进行为1000，将pod进程设置为1001
 root@node1:~# cat scdemo.yaml 
 apiVersion: v1
@@ -1634,7 +1634,6 @@ bin         dev         etc         home        index.html  proc        root    
 / # exit
 command terminated with exit code 1
 root@node1:~# 
-
 #打上标签绑定network policy
 root@node1:~# kubectl label pods nginx role=db
 pod/nginx labeled
@@ -1650,7 +1649,6 @@ Connecting to 10.244.0.35:80 (10.244.0.35:80)
 index.html           100% |*******************************************************************************************************************************************************************************************|   612   0:00:00 ETA
 / # exit
 command terminated with exit code 1
-
 root@node1:~# 
 #为busybox搭上role=frontend标签
 root@node1:~# kubectl label pod busybox role=frontend
@@ -1809,11 +1807,8 @@ CKA考试关于这部分的题是提供一套ca证书和私钥，让你去配置
 ...
       --enable-bootstrap-token-auth                       Enable to allow secrets of type 'bootstrap.kubernetes.io/token' in the 'kube-system' namespace to be used for TLS bootstrapping authentication.
 ...
-
 root@node1:~# ps -ef |grep kubelet |grep enable
 root     16652 16570  1 Jun29 ?        01:27:05 kube-apiserver --advertise-address=172.19.124.123 --allow-privileged=true --authorization-mode=Node,RBAC --client-ca-file=/etc/kubernetes/pki/ca.crt --enable-admission-plugins=NodeRestriction --enable-bootstrap-token-auth=true --etcd-cafile=/etc/kubernetes/pki/etcd/ca.crt --etcd-certfile=/etc/kubernetes/pki/apiserver-etcd-client.crt --etcd-keyfile=/etc/kubernetes/pki/apiserver-etcd-client.key --etcd-servers=https://127.0.0.1:2379 --insecure-port=0 --kubelet-client-certificate=/etc/kubernetes/pki/apiserver-kubelet-client.crt --kubelet-client-key=/etc/kubernetes/pki/apiserver-kubelet-client.key --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname --proxy-client-cert-file=/etc/kubernetes/pki/front-proxy-client.crt --proxy-client-key-file=/etc/kubernetes/pki/front-proxy-client.key --requestheader-allowed-names=front-proxy-client --requestheader-client-ca-file=/etc/kubernetes/pki/front-proxy-ca.crt --requestheader-extra-headers-prefix=X-Remote-Extra- --requestheader-group-headers=X-Remote-Group --requestheader-username-headers=X-Remote-User --secure-port=6443 --service-account-key-file=/etc/kubernetes/pki/sa.pub --service-cluster-ip-range=10.96.0.0/12 --tls-cert-file=/etc/kubernetes/pki/apiserver.crt --tls-private-key-file=/etc/kubernetes/pki/apiserver.key
-
- 
 root@node1:~# kubectl get secret -n kube-system |grep boot
 bootstrap-signer-token-7lq5r                     kubernetes.io/service-account-token   3      4d
 bootstrap-token-0iha3k                           bootstrap.kubernetes.io/token         7      4d
@@ -1841,8 +1836,6 @@ base64: invalid input
 root@node1:~# echo "c3lzdGVtOmJvb3RzdHJhcHBlcnM6a3ViZWFkbTpkZWZhdWx0LW5vZGUtdG9rZW4=" |base64 -d
 system:bootstrappers:kubeadm:default-node-token
 root@node1:~# 
-
-
 root@node1:~# kubectl get clusterrole |grep nodeclient
 system:certificates.k8s.io:certificatesigningrequests:nodeclient       4d
 system:certificates.k8s.io:certificatesigningrequests:selfnodeclient   4d
@@ -1873,8 +1866,6 @@ root@node1:~# echo " c3lzdGVtOmJvb3RzdHJhcHBlcnM6a3ViZWFkbTpkZWZhdWx0LW5vZGUtdG9
 base64: invalid input
 root@node1:~# echo "c3lzdGVtOmJvb3RzdHJhcHBlcnM6a3ViZWFkbTpkZWZhdWx0LW5vZGUtdG9rZW4=" |base64 -d
 system:bootstrappers:kubeadm:default-node-tokenroot@node1:~# 
-
-
 root@node1:~# kubectl get clusterrole system:certificates.k8s.io:certificatesigningrequests:nodeclient -oyaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -1895,7 +1886,6 @@ rules:
   - certificatesigningrequests/nodeclient
   verbs:
   - create
-
 root@node1:~# kubectl get clusterrolebinding |grep appro
 kubeadm:node-autoapprove-bootstrap                     4d
 kubeadm:node-autoapprove-certificate-rotation          4d
@@ -1917,8 +1907,6 @@ subjects:
   kind: Group
   name: system:bootstrappers:kubeadm:default-node-token #user group
 root@node1:~# 
-  
-
 ```  
 
  总结：首先kubelet通过token访问api-server时，会得到system:bootstrappers:kubeadm:default-node-token 用户组，该用户组绑定了ClusterRole system:certificates.k8s.io:certificatesigningrequests:nodeclient，就拿到了可以创建nodeclient这种类型的csr请求。 也就是kubelet启动时使用该token,只能调用nodeclient csr API。
