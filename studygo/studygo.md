@@ -349,3 +349,966 @@
         fun    [1]uintptr      //可变大小 方法集合
     }
     ```
+
+- interface.(type)
+
+```go
+package main
+import "fmt"
+func test(i interface{}) {
+	switch i.(type) {
+	case int:
+		fmt.Println("int")
+	case string:
+		fmt.Println("string")
+	default:
+		fmt.Println("other")
+	}
+}
+func main() {
+	test(10)//int
+	test("hello")//string
+}
+```
+
+- 函数返回值，指定命名，要么全部命名，要么全不
+
+```go
+func funcMui(x,y int)(sum int,err error){
+    return x+y,nil
+}
+```
+- defer+闭包+返回值:汇编分析
+
+这里需要理解return x,和返回值；return x不是原子操作，它分为两部分，设置返回值+RET；设置返回值，在汇编的角度上是将输出存在了规定好的内存上（调用函数前会先留出返回值、参数的空间，接着是函数栈），所以设置返回值，就是把数复制到这里，而命名参数则是获得了这部分空间的地址，只要在RET前，做改动，都会更新到返回值空间上。
+```bash
+返回值 = xxx
+调用defer函数
+空的return
+```
+栈空间：
+```bash
++-----------+----------- 
+|  返回值N   |  
++-----------+  
+|   ...     | 
++-----------+ 
+|  返回值1   |   
++---------+-+      
+|  参数2     |   在调用函数中，上述代码就是main函数中
++-----------+       
+|   ...     | 
++-----------+     
+|  参数1     |  
++-----------+ 
+|  返回地址  |   调用结束后PC指向的位置
++-----------+---------bp值
+|  局部变量  |   
+|    ...    |   被调用数栈祯,上述代码就是DeferFuncX中
+|           |
++-----------+---------sp值
+--------------------- 
+```
+```go
+package main
+
+func main() {
+
+	println(DeferFunc1(1))//4
+	println(DeferFunc2(1))//1
+	println(DeferFunc3(1))//3
+}
+
+func DeferFunc1(i int) (t int) {
+	t = i
+	defer func() {
+		t += 3
+	}()
+	return t  //这个其实return不return无所谓，因为函数内直接更新了返回值
+}
+
+func DeferFunc2(i int) int {
+	t := i
+	defer func() {
+		t += 3
+	}()
+	return t //这个地方需要return,首先设置返回值1，接着defer操作，不应用到返回值，接着RET
+}
+
+func DeferFunc3(i int) (t int) {
+	defer func() {
+		t += i
+	}()
+	return 2 //这个地方，设置返回值2，即t=2,defer操作，直接更新应用t+=i,即返回值为3,最后RET
+}
+
+```
+
+
+- make和new，是否可以编译通过？如果通过，输出什么？
+
+```go
+func main() {
+	list := new([]int)
+	list = append(list, 1)
+	fmt.Println(list)
+}
+```
+正确：
+```go
+package main
+
+import "fmt"
+
+func main() {
+	//不匹配，new返回Type=&[]int
+	//list := new([]int)
+	//append需要的类型是[]int
+	//list = append(list, 1)
+	//1:
+	list1 := new([]int)
+	*list1 = append(*list1, 1)
+	fmt.Println(list1)//&[1]
+	//或者用make,make返回的是Type=[]int的对象(引用)
+	list2 := make([]int, 0)
+	list2 = append(list2, 1)
+	fmt.Println(list2) //[1]
+}
+```
+new(T) 为一个 T 类型新值分配空间并将此空间初始化为 T 的零值，返回的是新值的地址，也就是 T 类型的指针 *T，该指针指向 T 的新分配的零值。  
+make 只能用于 slice，map，channel 三种类型，make(T, args) 返回的是初始化之后的 T 类型的值，这个新值并不是 T 类型的零值，也不是指针 *T，是经过初始化之后的 T 的引用。
+
+- 是否可以编译通过？如果通过，输出什么？
+```go
+package main
+
+import "fmt"
+
+func main() {
+	s1 := []int{1, 2, 3}
+	s2 := []int{4, 5}
+	s1 = append(s1, s2)//这里忘了...,应该是s1=append(s1,s2...)
+	fmt.Println(s1)
+}
+
+```
+
+- 是否可以编译通过？如果通过，输出什么？
+
+```go
+func main() {
+
+	sn1 := struct {
+		age  int
+		name string
+	}{age: 11, name: "qq"}
+	sn2 := struct {
+		age  int
+		name string  //这里都是值类型，可以比较
+	}{age: 11, name: "qq"}
+
+	if sn1 == sn2 {
+		fmt.Println("sn1 == sn2")
+	}
+
+	sm1 := struct {
+		age int
+		m   map[string]string  //map是引用类型，不能用==比较，所以编译不通过
+	}{age: 11, m: map[string]string{"a": "1"}}
+	sm2 := struct {
+		age int
+		m   map[string]string
+	}{age: 11, m: map[string]string{"a": "1"}}
+
+	if sm1 == sm2 { //这里编译不过，可以改为reflect.DeepEqual(sm1, sm2) ，这样会通过
+
+		fmt.Println("sm1 == sm2")
+	}
+}
+
+```
+
+- 是否可以编译通过？如果通过，输出什么？
+
+```go
+func Foo(x interface{}) {//考察空接口和接口的内部结构
+	if x == nil {
+		fmt.Println("empty interface")
+		return
+	}
+	fmt.Println("non-empty interface")
+}
+func main() {
+	var x *int = nil
+	Foo(x)
+}
+```
+
+- 是否可以编译通过？如果通过，输出什么？
+
+只有指针、引用类型、function、channel可以设置为nil
+```go
+package main
+
+import "fmt"
+
+func GetValue(m map[int]string, id int) (string, bool) {
+	if _, exist := m[id]; exist {
+		return "存在数据", true
+	}
+	return nil, false //编译不过，因为只有指针,引用类型,func,channel可以设置为nil
+	//return "不存在", false
+}
+func main() {
+	intmap := map[int]string{
+		1: "a",
+		2: "bb",
+		3: "ccc",
+	}
+
+	v, err := GetValue(intmap, 3)
+	fmt.Println(v, err)
+}
+```
+
+- 是否可以编译通过？如果通过，输出什么？
+
+```go
+const ( 
+	x = iota  //0
+    y         //1 自增
+	z = "zz" //这个也占用iota增量
+	k   //直接重复上一个变量初始值
+    p = iota
+    -  //跳过递增,是指为m跳过了这个位置的增，但还是增了,这个位置为5
+    m //m则为6
+)
+
+func main()  {
+	fmt.Println(x,y,z,k,p)
+}
+```
+
+---
+
+- 变量简短模式，编译执行下面代码会出现什么?
+
+```go
+package main
+
+import _ "fmt"
+
+var (
+	size     := 1024//编译不过，改为size =1024
+	max_size = size * 2
+)
+
+func main() {
+	println(size, max_size)
+}
+```
+
+
+- 下面函数有什么问题？
+
+常量不同于变量的在运行期分配内存，常量通常会被编译器在预处理阶段直接展开，作为指令数据使用，
+
+```go
+package main
+const cl  = 100
+
+var bl    = 123
+
+func main()  {
+    println(&bl,bl)
+    println(&cl,cl) //常量获取地址，因为不会为常量分配地址，而是在编译时直接展开
+}
+```
+
+
+
+- 编译执行下面代码会出现什么?
+
+goto不能跳转到其他函数或者内层代码
+```
+package main
+
+func main()  {
+
+    for i:=0;i<10 ;i++  {
+    loop:     //不能跳到循环中-->内层代码
+        println(i)
+    }
+    goto loop
+}
+```
+
+- 编译执行下面代码会出现什么?
+```go
+package main
+import "fmt"
+
+func main()  {
+    type MyInt1 int //definition，是需要强制类型转换的
+    type MyInt2 = int  //这是alias，可以直接赋值的
+    var i int =9
+    var i1 MyInt1 = i //这里报错，需要强制类型转换，var i1 MyInt1=MyInt1(i)
+    var i2 MyInt2 = i
+    fmt.Println(i1,i2)
+}
+```
+
+- 编译执行下面代码会出现什么?（新语法）
+
+```
+package main
+import "fmt"
+
+type User struct {
+}
+type MyUser1 User
+type MyUser2 = User
+func (i MyUser1) m1(){
+    fmt.Println("MyUser1.m1")
+}
+func (i User) m2(){
+    fmt.Println("User.m2")
+}
+
+func main() {
+    var i1 MyUser1
+    var i2 MyUser2
+    i1.m1()  //MyUser1.m1
+    i2.m2()  //User.m2,MyUser2和User是一个东西
+} 
+```
+
+- 编译执行下面代码会出现什么?
+
+```
+package main
+
+import "fmt"
+
+type T1 struct {
+}
+func (t T1) m1(){
+    fmt.Println("T1.m1")
+}
+type T2 = T1
+type MyStruct struct {
+    T1 //T1和T2是一个东西，这里重复了
+    T2
+}
+func main() {
+    my:=MyStruct{}
+    //my.m1() //会报错ambiguous selector my.m1,但是只哟啊不使用T1和T2中的东西，就不会报错
+    my.T1.m1() //可以通过
+}
+```
+结果不限于方法，字段也也一样；也不限于type alias，type defintion也是一样的，只要有重复的方法、字段，就会有这种提示，因为不知道该选择哪个
+type alias的定义，本质上是一样的类型，只是起了一个别名，源类型怎么用，别名类型也怎么用，保留源类型的所有方法、字段等。
+
+- 编译执行下面代码会出现什么?
+```
+package main
+import (
+    "errors"
+    "fmt"
+)
+var ErrDidNotWork = errors.New("did not work")
+func DoTheThing(reallyDoIt bool) (err error) {
+    if reallyDoIt {
+        result, err := tryTheThing() //内部变量
+        //result, err = tryTheThing() //改成这样就好
+        if err != nil || result != "it worked" {
+            err = ErrDidNotWork
+        }
+    }
+    //外层变量，不是同一个
+    return err //这个err是空的没有初始化，error类型是个内建类型的interafce
+}
+
+func tryTheThing() (string,error)  {
+    return "",ErrDidNotWork
+}
+
+func main() {
+    fmt.Println(DoTheThing(true))
+    fmt.Println(DoTheThing(false))
+}
+```
+
+```go
+// The error built-in interface type is the conventional interface for
+// representing an error condition, with the nil value representing no error.
+type error interface {
+	Error() string
+}
+
+```
+
+
+- 编译执行下面代码会出现什么?闭包延迟求值
+```go
+package main
+func test() []func()  {
+    var funs []func()
+    for i:=0;i<2 ;i++  {
+        funs = append(funs, func() { //想不一样，就改成参数传入的
+            println(&i,i) //闭包，公用同一个变量，在闭包执行时，这个变量是多少就是多少，
+            //这里只是存储，所以最后都是2
+        })
+    }
+    return funs
+}
+
+func main(){
+    funs:=test()
+    for _,f:=range funs{//f是值,这里没问题
+        f() //输出相同地址，相同变量
+    }
+}
+```
+
+- 编译执行下面代码会出现什么?闭包引用相同变量
+```go
+package main
+
+func test(x int) (func(),func())  {
+    return func() {
+        println(x)  //还是闭包，引用了同一个变量，函数使用时这个变量是多少就是多少
+        x+=10
+    }, func() {
+        println(x) //同一个变量，堆上的，同一个内存
+    }
+}
+
+func main()  {
+    a,b:=test(100)
+    a() //100
+    b() //110
+}
+```
+
+
+
+- 编译执行下面代码会出现什么?
+
+```go
+package main
+
+import (
+    "fmt"
+    "reflect"
+)
+
+func main()  {
+    defer func() {
+       if err:=recover();err!=nil{  //panic1-->panic2-->这时只能捕捉到最近的，所以是defer panic
+           fmt.Println(err)  
+       }else {
+           fmt.Println("fatal")
+       }
+    }()
+
+    defer func() {
+        panic("defer panic")
+    }()
+    panic("panic")
+}
+```
+```go
+//捕捉测试，用反射测试
+func main()  {
+    defer func() {
+        if err:=recover();err!=nil{
+            fmt.Println("++++")
+            f:=err.(func()string)
+            fmt.Println(err,f(),reflect.TypeOf(err).Kind().String())
+            //函数地址，函数调用结果，类型为func
+        }else {
+            fmt.Println("fatal")
+        }
+    }()
+
+    defer func() {
+        panic(func() string {
+            return  "defer panic"
+        })
+    }()
+    panic("panic")
+}
+
+```
+
+```go
+package main
+
+import (
+	"fmt"
+)
+
+func main() {
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println(err)
+		} else {
+			fmt.Println("fatal")
+        }
+        //就是panic链，或者说是栈
+		if err := recover(); err != nil {
+			fmt.Println(err)
+		} else {
+			fmt.Println("fatal")
+		}
+
+	}()
+
+	defer func() {
+		panic("defer panic")
+	}()
+	panic("panic")
+}
+/*
+defer panic
+fatal*/
+```
+
+---
+编程，算法
+
+- 在utf8字符串判断是否包含指定字符串，并返回下标。 “北京天安门最美丽” , “天安门” 结果：2
+
+```go
+package main
+
+import (
+	"fmt"
+	"strings"
+)
+
+func main() {
+	fmt.Println(Utf8Index("北京天安门最美丽", "天安门"))
+	fmt.Println(strings.Index("北京天安门最美丽", "男"))
+	fmt.Println(strings.Index("", "男"))
+	fmt.Println(Utf8Index("12ws北京天安门最美丽", "天安门"))
+}
+
+func Utf8Index(str, substr string) int {
+	//Index returns the index of the first instance of substr in s, or -1 if substr is not present in s.
+	asciiPos := strings.Index(str, substr)
+	if asciiPos == -1 || asciiPos == 0 {
+		return asciiPos
+	}
+	//接下来是咋回事？
+	//主要是size问题，byte,和rune大小长度不一样，所以出来的位置也不一样
+	pos := 0
+	totalSize := 0
+	reader := strings.NewReader(str)
+	for _, size, err := reader.ReadRune(); err == nil; _, size, err = reader.ReadRune() {
+		totalSize += size
+		pos++
+		// 匹配到
+		if totalSize == asciiPos {
+			return pos
+		}
+	}
+	return pos
+}
+```
+
+- 实现一个单例,就是只能保证一个实例，Go中可以把类型改为小写不可导出+创建对象方法大写，然后通过锁实现仅一个实例
+
+主要是考虑并发产生问题,实例化只能执行一次，所以是个临界区，要加锁
+
+```go
+package main
+
+import "sync"
+import "fmt"
+
+// 实现一个单例
+
+type singleton struct{ v int }
+
+var ins *singleton
+var mu sync.Mutex
+
+//懒汉加锁:虽然解决并发的问题，但每次加锁是要付出代价的
+func GetIns() *singleton {
+	mu.Lock()
+	defer mu.Unlock()
+
+	if ins == nil {
+		ins = &singleton{10}
+	}
+	return ins
+}
+
+//双重锁:避免了每次加锁，提高代码效率
+func GetIns1() *singleton {
+	if ins == nil {
+		mu.Lock()
+		defer mu.Unlock()
+		if ins == nil {
+			ins = &singleton{11}
+		}
+	}
+	return ins
+}
+
+//sync.Once实现
+var once sync.Once
+
+func GetIns2() *singleton {
+	once.Do(func() {
+		ins = &singleton{12}
+	})
+	return ins
+}
+func main() {
+	a := GetIns() //10
+	fmt.Println(a.v)
+	a = GetIns1() //10
+	fmt.Println(a.v)
+
+	a = GetIns2() //12
+	a.v = 1222
+	fmt.Println(a.v) //1222
+
+	a = GetIns2() //1222
+	fmt.Println(a.v)
+
+}
+```
+
+- 执行下面的代码发生什么？
+
+关闭chan后，可读，不可写，可读是可以读到关闭状态（即not ok)
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+func main() {
+	ch := make(chan int, 1000)
+	go func() {
+		for i := 0; i < 10; i++ {
+			ch <- i
+		}
+	}()
+	go func() {
+		for {
+			a, ok := <-ch
+			if !ok {
+				fmt.Println("close")
+				return
+			}
+			fmt.Println("a: ", a)
+		}
+	}()
+	close(ch)//总共三个协程，这里快，先关闭chan,第一个写成还在往这里边写，所以异常
+	fmt.Println("ok")
+	time.Sleep(time.Second * 100)
+}
+
+```
+
+- 执行下面的代码发生什么？
+```go
+package main
+import "fmt"
+
+type ConfigOne struct {
+	Daemon string
+}
+
+func (c *ConfigOne) String() string {
+	return fmt.Sprintf("print: %v", c)//%v会使用String()的值，所以这里会导致无限递归
+}
+
+func main() {
+	c := &ConfigOne{}
+	c.String()
+}
+```
+- 编程题
+
+反转整数 反转一个整数，例如：
+
+例子1: x = 123, return 321
+例子2: x = -123, return -321
+
+输入的整数要求是一个 32bit 有符号数，如果反转后溢出，则输出 0
+
+```go
+package main
+
+import "fmt"
+import "math"
+
+//-2147483648
+//2147483647
+
+func reverse(v int) int {
+	max10:= math.MaxInt32 / 10
+	rv := 0
+	for v/10 != 0 {
+		rv = rv*10 + (v % 10)
+		v /= 10
+    }
+    //和214748364比较
+	if rv > max10 || rv < 0-max10 || (rv == max10 && v > 7) || (rv <= 0-max10 && v < -8) {
+		return 0
+	} else {
+		return rv*10 + v
+	}
+}
+func main() {
+	fmt.Println(reverse(-123))
+	fmt.Println(reverse(1463847412))
+	fmt.Println(reverse(7463847412))
+	fmt.Println(reverse(7463847413))
+	fmt.Println(reverse(8463847412))
+	fmt.Println(reverse(-8463847412))
+	fmt.Println(reverse(-8463847413))
+	fmt.Println(reverse(-9463847412))
+}
+```
+
+
+- 编程题
+
+合并重叠区间 给定一组 区间，合并所有重叠的 区间。
+
+例如： 给定：[1,3],[2,6],[8,10],[15,18] 返回：[1,6],[8,10],[15,18]
+
+```go
+```
+
+- 输出什么
+```go
+package main
+
+import (
+	"fmt"
+)
+
+func main() {
+	fmt.Println(len("你好bj!"))//输出编码长度，看汉字占用多大空间
+}
+//utf-8汉字占用字节数3，utf-16汉字占用字节数4
+//英文字母都是一个字节
+
+```
+
+
+- map,编译并运行如下代码会发生什么？
+
+list["name"]不是一个普通的指针值，map的value本身是不可寻址的，因为map中的值会在内存中移动，并且旧的指针在map改变时会变得无效。
+map是可以自动扩容的，存储位置是易变的，所以go不允许直接对map的value写，但可以改为指针间接进行,var list map[string]*Test。
+
+```go
+package main
+import "fmt"
+type Test struct {
+	Name string
+}
+var list map[string]Test
+func main() {
+	list = make(map[string]Test)
+	name := Test{"xiaoming"}
+	list["name"] = name
+    //list["name"].Name = "Hello"  //cannot assign to struct field list["name"].Name in map
+    //如果想这样，可以用指针，map[string]*Test
+	fmt.Println(list["name"])
+}
+```
+
+- ABCD中哪一行存在错误？
+
+看到这道题需要第一时间想到的是Golang是强类型语言，interface是所有golang类型的父类，类似Java的Object。 函数中func f(x interface{})的interface{}可以支持传入golang的任何类型，包括指针，但是函数func g(x *interface{})只能接受*interface{}.
+
+
+```go
+type S struct {
+}
+func f(x interface{}) {
+}
+func g(x *interface{}) {
+}
+func main() {
+	s := S{}
+	p := &s
+	f(s) //A
+	g(s) //B  cannot use s (type S) as type *interface {} in argument to g: *interface {} is pointer to interface, not interface
+	f(p) //C
+	g(p) //D cannot use p (type *S) as type *interface {} in argument to g: *interface {} is pointer to interface, not interface
+}
+```
+
+
+
+- 编译并运行如下代码会发生什么？
+```go
+package main
+import (
+	"sync"
+	//"time"
+)
+const N = 10
+var wg = &sync.WaitGroup{}
+func main() {
+	for i := 0; i < N; i++ {
+		go func(i int) {
+			wg.Add(1)
+			println(i)
+			defer wg.Done()
+		}(i)
+	}
+	wg.Wait()//wait时各协程没有完全开始，所以可能部分没有输出，比较随机
+}
+```
+这是使用WaitGroup经常犯下的错误！请各位同学多次运行就会发现输出都会不同甚至又出现报错的问题。 这是因为go执行太快了，导致wg.Add(1)还没有执行main函数就执行完毕了。 改为如下试试
+```go
+
+for i := 0; i < N; i++ {
+        wg.Add(1)//外部加个控制
+		go func(i int) {
+			println(i)
+			defer wg.Done()
+		}(i)
+	}
+	wg.Wait()
+```
+---
+算法
+
+- 如何在一个给定有序数组中找两个和为某个定值的数，要求时间复杂度为O(n), 比如给｛1，2，4，5，8，11，15｝和15？
+
+
+双指针，前提有序
+```go
+func Lookup(meta []int32, target int32) {
+	left := 0
+	right := len(meta) - 1
+	for i := 0; i < len(meta); i++ {
+		if meta[left]+meta[right] > target {
+			right--
+		} else if meta[left]+meta[right] < target {
+			left++
+		} else {
+			fmt.Println(fmt.Sprintf("%d, %d", meta[left], meta[right]))
+			return
+		}
+	}
+	fmt.Println("未找到匹配数据")
+}
+```
+
+
+- 给定一个数组代表股票每天的价格，请问只能买卖一次的情况下，最大化利润是多少？日期不重叠的情况下，可以买卖多次呢？输入：{100,80,120,130,70,60,100,125}，只能买一次：65(60买进，125卖出)；可以买卖多次：115(80买进，130卖出；60买进，125卖出)？
+
+
+
+- 40亿个不重复的unsigned int的整数，没排过序的，然后再给一个数，如何快速判断这个数是否在那40亿个数当中？
+
+1. 10亿约等于1G,40亿x4B约等于16GB,最多有2^32个数，每个数占用一位，则不到4GB就够用了，这样建立bitmap,O(n),判断O(1)
+2. 将40亿个数分成1024份，按后10数划分，可以确定所在的文件，然后对这个文件中的数，再次按次10位数划分成1024个文件，同样可以确定出所在的文件，最后在1024个数中找到目标；这个方法的好处是可以提前判断出不存在，时间复杂度O(N),深度是O(logN)级别的
+或者简单点，按位划分，首先最高位0，1分成两组，需要再次确定一组，然后划分次等位的0/1，最后确定数据。
+
+但是，我认为这道题本身有问题，目标数不应该一个，而应该一组，否则O(n)就结束了，类似的应该是URL过滤问法。
+题3本身就有问题，遍历就是最快的；题目应该加上一个条件，目标是一组数，而不应该是一个；它想问的类似于URL过滤这种吧。
+题干已经脱离了实际，我想这种题最先来自于类似URL过滤这种，但后来慢慢演变到没有意义了。
+
+
+---
+设计题
+
+- 秒杀系统要注意什么
+
+秒杀页面->服务端控制器(网关)->服务层->数据库层
+
+前端：
+1. 页面静态化，尽量减少动态元素，通过CDN来抗峰值；
+2. 禁止重复提交；
+3 用户限流，在某段时间内，只允许请求一次，可以采取ip限流
+
+服务端（网关）：限制uid访问频率，前端只是拦截了用于的请求，但是对于恶意攻击或者其他插件，需要服务端控制
+
+服务层：
+1. 采用消息队列缓存请求，数据库层订阅消息减库存，减库存成功请求秒杀成功，失败返回秒杀结束
+2. 利用缓存应对读请求，比如12306等购票业务，大多数是查询请求，可以利用缓存分担数据库压力
+3. 利用缓存应对写请求： 比如将数据库中的库存数据转移到redis缓存中，减库存操作在redis中进行，然后同步到数据库中
+
+数据库层：数据库层是最脆弱的一层，一般在应用设计时在上游就把请求拦截掉，数据库只承担能力范围内的访问请求，所以上面通过在服务层引入队列和缓存，让底层数据库安全
+
+
+- 设计一个类似微信红包架构系统要注意什么
+
+
+南北分布：按订单纬度处理，南北系统分摊流量，降低系统风险
+
+两地服务器，南部发送红包，流量进入南部处理，北部发红包，流量进入北部处理；
+
+用户数据写多读少，全量存深圳，异步队列写入，查时这边跨城。
+
+DB故障时流量转移：当一地发生故障，可以将红包业务调到另一边，实现容灾
+
+拆红包入账异步化，信息流与资金流分离，拆红包时，db中记下凭证，然后异步队列请求入账，失败后通过补偿队列补偿，通过红包凭证与用户账户入账流水队长，保证最终一致性。
+
+快慢分离,红包的入账是一个分布事务，属于慢接口，而拆红包凭证落地则速度快。实际应用中，用户只关心最佳手气，很少高薪抢到的零钱是否入账，因为展示用户的拆红包凭证即可。
+
+发拆落地，其他操作双层cache：
+1. cache住所有查询，两层chache，ckv做全量缓存，在数据访问层dao中增加本机内存cache做二级缓存，cache所有读请求，查询失败或不存在，降级内存cache;内存chache查询失败或记录不存在时降级db。
+db本身不做读写分离
+2. db写同步cache，容忍少量不一致
+
+失败有异步队列补偿，定时的ckv与db备机对账，保证最终一致
+
+DB双冲纬度分库表，冷热分离，红包热，其他数据放在冷数据库中（慢）
+
+红包算法：
+
+为保证每个人都可以领到红包，最多可以领取多少为上水位，每个人最少领取额为下水位，为保持均衡，可以调整上下水位。主要是红包也是一个一个的抢。
+
+
+----
+架构
+- etcd满足了cap原理中哪两个特性？ cp，允许暂时不可用
+
+- etcd v2和v3版本区别？
+
+接口不一样，存储不一样，数据相互隔离；
+v2是纯内存是心啊，未实时落地，v3是内存索引（b树）+后端数据库;
+v2过期时间只能设置到每个key上，v3通过租期lease，可以为每个key设置相同的过期id；
+v2 只能watch某个key及子节点，不能进行多个watch；v3支持某个固定key,也支持watch一个范围；
+v2 体统http接口，v3提供grpc
+
+- 选型etcd考量，和zk有那些区别
+
+相同点：1. 应用场景：配置管理、服务注册发现，选主，调度，分布式嘟咧，分布式锁
+不同点：
+1. etcd 使用raft协议，zk使用paxos，前者易于理解，方便工程实现
+2. etcd相对来说部署方便，zk比较复杂
+3. etcd提供http+json,grpc接口，跨平台，zk需要使用客户端
+4. etcd支持https，zk在这访民啊确实
+
+- 服务治理包含哪些？
+1. 服务注册、发现
+2. 服务监控
+3. 集群容错
+4. 负载均衡
+
+- 负载均衡分类
+1. dns负载均衡（地理负载均衡）
+2. 硬件lb
+3. 软件lb（nginx,lvs)
+
+并发量大于1000万，可以考虑配合使用
+
+- nginx和lvs的区别：7层和4层
+
