@@ -1,3 +1,96 @@
+### k8s工作负载原理和实践
+
+Pod,最小的部署单元，其上一层workload,即controller,有四种模式：无状态模式、守护进程模式、有状态模式、批处理模式；
+
+#### 无状态模式：
+1. 不必为应用保持状态/持久化数据
+2. 典型应用代表：Nginx,Tomcat
+3. Replication Controller
+4. ReplicaSet,基于集合的label selector,RS支持基于集合运算符，NotIn,Exists,DoesNotExist
+5. Deployment,提供了声明式、自定义策略的Pod升级支持
+
+升级/回滚：
+```bash
+kubectl set ...
+kubectl rollout history ...
+kubectl roullout undo ...
+```
+
+暂停/恢复
+```bash
+kubectl rollout pause deployment ...
+kubeclt rollout resume deployment ...
+```
+
+弹性、按比例扩/缩容
+```
+kubeclt scale deployment/... --replicas=10
+kubectl autoscal deployment nginx-deployment --min=10 --max=15 --cpu-percent=80 //需要和hpa联动
+maxSurge=3
+maxUnavailable=2
+```
+
+
+#### 有状态模式
+
+1. 典型应用：zookeeper、mongodb,mysql,etcd
+2. statefulSet(曾用名：PetSet)
+3. StatefulSet的pod和普通Pod区别：有身份
+4. StatefulSet身份三要素:
+    1. 域名(网络)<- 容器ip易变
+    2. pvc(存储)
+    3. pod name(主机名)
+5. 配合headless service（没有cluster ip的svc）,pvc一起使用
+6. 严格的启动/删除顺序：0，1，2
+
+
+
+#### 守护进程模式
+
+1. 典型应用： fluentd,linkderd,ceph,kube-proxy
+2. DaemonSet: 保证每个节点总是运行一个pod实例
+    1. NodeSelector或NodeAffinity指定Node
+    2. 经过/不经过调度器（不管Node状态）
+    3. 支持滚动升级
+    4/ 支持级联/非级联删除
+
+
+经过调度器，如果不经过调度器直接跳过了pendding状态，与其他pod状态不一致
+
+
+#### 批处理模式
+
+1. 典型应用：并发执行的作用，batch job;相关但独立的工作项：发邮件、数据扫描、文件转码
+2. job
+    1. 保证指定数量pod成功运行结束-completions
+    2. 支持并行-paralelism
+    3. 支持错误自动重试（10s,20s,40s,...6min),
+    4. 删除job会触发对应pod删除
+
+3. cronjob
+    1. 基于时间调度的job(cron格式)
+    2. 用户可以暂停/恢复jo的周期性调度.spec.suspend=(true,flase)
+    3. 管理job->pod
+
+backoffLimit：5限制出错次数
+activeDeadlineSeconds:100,限制dead时间
+
+
+k8s常见使用方法：
+1. 做不同的事情：扩展job Expansion，传入参数、环境变量
+2. 做同样的事情：工作队列形式，与work queque（rabbitmq)结合
+
+cronjob
+```spec.schedule: * * /1 * * * * *```
+
+
+总结：
+1. 无状态模式：使用deployment提供高可用、弹性扩/缩容、升级/回滚
+2. 有状态模式：使用StatefulSet提供一致性，Pod的唯一/粘性的身份标识、存储，按序部署、扩缩容
+3. 守护进程模式：一个节点部署一个（可自定义节点范围）
+4. 批处理模式：并行跑多个pod,并且保证都成功返回
+
+---
 ### k8s调度器原理剖析与实践
 
 k8s调度机制介绍、k8s中的调度策略与算法、k8s高级调度特性详解
@@ -272,10 +365,243 @@ root@node1:~#
 之后，通过docker run --net=container:$contid busybox:latest /bin/sh 复用容器contid的网络
 
 
+---
+
+### k8s服务发现与负载均衡原理剖析与实践
+
+k8s的service机制;iptables实现service负载均衡;当前iptables实现存在的问题;ipvs实现service负载均衡;iptables vs. ipvs
+
+
+用户和pod直接连接，简单但是有问题：
+1. 多个后端实例如何做到负载均衡  
+2. 如何保持会话亲和性
+3. 容器迁移，ip发生变化如何访问
+4. 健康检查怎么做
+5. 怎么通过域名访问
+
+
+k8s service 和  endpoints
+
+svc
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2019-07-07T01:15:14Z"
+  labels:
+    run: docker
+  name: docker
+  namespace: default
+  resourceVersion: "813652"
+  selfLink: /api/v1/namespaces/default/services/docker
+  uid: 9e89f78f-e578-4bd2-9c70-a0f125ab9e25
+spec:
+  clusterIP: 10.101.44.78 #虚ip
+  ports:
+  - port: 2375   //service port
+    protocol: TCP
+    targetPort: 2375  //pod port
+  selector:
+    name: docker
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}
+```
+endpoints
+```yaml
+apiVersion: v1
+kind: Endpoints
+metadata:
+  annotations:
+    endpoints.kubernetes.io/last-change-trigger-time: "2019-07-07T01:15:16Z"
+  creationTimestamp: "2019-07-07T01:15:14Z"
+  labels:
+    run: docker
+  name: docker
+  namespace: default
+  resourceVersion: "813673"
+  selfLink: /api/v1/namespaces/default/endpoints/docker
+  uid: 92e5dbde-11a0-4fda-a1ca-66eb188e2c9f
+subsets:
+- addresses:
+  - ip: 10.244.0.52
+    nodeName: node1
+    targetRef:
+      kind: Pod
+      name: docker-dind-b6bfb4558-j4lfl
+      namespace: default
+      resourceVersion: "813672"
+      uid: 7af91fd0-172b-4e54-8f5f-ef8b3916bb13
+  ports:
+  - port: 2375
+    protocol: TCP
+```
+
+Service内部逻辑：
+![overlay](../images/20190710-service.png)
+
+虚ip本身是没有意义的，那在集群中如何做到有意义的呢？
+1. 用户创建service和pods
+2. k8s的controller manager中endpoints controller或watch service和pod的变化更新，pods ready后会自动创建endpoints
+3. 每个节点上都运行着一个kube-proxy,kube-proxy中有个组件load-balancer,这是一个虚拟的称呼，实际实现是iptables和ipvs
+
+
+#### iptables
+
+用户态程序，通过socket调用，通过配置Netfilter规则表（Xtables)来构建linux内核防火墙；此外，它还有DestNet功能，可以用来实现负载均衡
+
+![iptables](../images/20190713-iptables.png)
+
+#### 网络包通过Netfilter全过程：4个表5个链
+
+tables: net、filter、
+chain: input、output、forward、prerouting、postrouting
+
+当路由器用的，包经过forward链，从postrouting出去
+
+如果这个包要进入主机中的进程，会经过input链,再发给本地进程；
+本地进程的包要出去，要经过output链，最后从postrouting出去。
+
+在链上挂一些钩子函数，完成地址转换，设置防火墙等等
+![netfilter](../images/20190713-netfilter.png)
+
+#### iptables实现流量转发与负载均衡
+
+iptables如何做流量转发？DNAT实现ip地址和端口映射
+```bash
+iptables -t nat -A PREROUTING -d 1.2.3.4/32 --dport 80 -j DNAT --to-destination 10.20.30.40:8080
+//-t表示table ,假设1.2.3.4是service的ip,10.20.30.40是容器的ip，这样就做了一次转发
+```
+iptables如何做负载均衡？static模块为每个后端设置权重
+```bash
+iptables -t nat -A PREROUTING -d 1.2.3.4 --dport 80 -m statistic --mode random --probability .25  -j DNAT --to-destination 10.20.30.40:8080
+```
+
+iptables如何做会话保持？recent模块设置会话保持时间
+```bash
+iptables -t nat -A FOO -m recent --rcheck --seconds 3600 --reap --name BAR -j BAR
+//保持3600秒
+```
+images/20190713-netfilter.png
+
+#### iptables在k8s的应用
+
+DNAT应用： cluster ip:port -> prerouting(/出去是output) -> kube-services -> kube-svc-xxx ->kube-sep-xxx ->pod ip:target port
+
+1. 所有进入主机的包，不做任何匹配直接进入kube-service链中
+2. kube-service链是有匹配的，目的地址+端口，会跳到kube-svc-xxx链中
+3. kube-svc-xxx链没有匹配规则，直接跳到kube-sep-xxx链中
+4. kube-sep-xxx链又一次DNAT操作，将包的目的地址改成容器的地址，实现了svc ip:port到pod id:port的转换
 
 
 
+可通过如下命令查看iptables dnat实例：
+```bash
+iptables -t nat  -nL
+```
+
+
+iptables做负载均衡的问题：
+1. 规则线性匹配：kube-services链挂了一长串kube-svc-xxx链；访问每个svc都要遍历每条链直到匹配，时间复杂度O(N)
+2. 规则更新时延：非增量 
+3. 可扩展性：当系统存在大量iptables规则链时，增加/删除规则会出现kernel lock
+4. 可用性：后端实例扩容，服务会话保持时间更新等都会导致连接断开
+
+xtables是内核中的数据结构，处在临界区
+
+更新iptables规则的时研：
+1. 时延出现在哪？
+    1. 非增量式，即使加上--no-flush(iptables-restore)选项
+    2. kube-proxy定期同步iptables状态：拷贝所有规则：iptables-save;在内存中更新规则;在内核中修改规则：iptables-restore;规则更新期间存在kernel lock。
+2. 5k service(40k规则)，增加一条iptables规则，耗时11min
+3. 20k service(160k规则)，增加一条iptables规则，耗时5h
+
+iptables周期性刷新导致tps抖动
+
+k8s Scalability :   
+5k nodes,100k pod,1k services?
+
+
+iptables优化：树形结构,会增加复杂度
 
 
 
+#### 什么是IPVS(IP virtual server)
+
+1. linux内核实现的L4 LB,LVS负载均衡实现
+2. 基于netfilter,hash table
+3. 支持tcp,udp,sctp协议，ipv4,ipv6
+4. 支持多种负载均衡策略：rr,wrr,lc,wlc,sh,dh,lblc...
+5. 支持会话保持：persistent connection调度算法
+6. 支持三种LB模式：Direct Routing(DR),Tunneling NAT:
+    1. DR模式工作在L2,最快，但不支持端口映射
+    2. Tunneling模式用ip包封装ip包，也称ipip模式，不支持端口映射，(隧道模式)
+    3. dr和tunneling模式，回程报文不会经过ipvs director
+    4. nat模式支持端口映射，回程报文经过ipvs director:内核原生只做DNAT，不做SNAT
+
+
+#### IPVS做L4转发
+
+1. 绑定VIP
+```bash
+#dummy网卡
+ip link add dev dummy0 type dummy
+ip addr add 192.168.2.2/32 dev dummy0
+#本地路由表
+ip route add to local 192.168.2.2/32 dev eth0 proto kernel
+#网卡别名
+ifconfig eth0:1 192.168.2.2 netmask 255.255.255.255 up
+```
+
+2.  创建ipvs virtual server
+```bash
+ipvsadm -A -t 192.168.60.200:80 -s rr -p 600
+```
+3. 创建IPVS Real Server
+```bash
+ipvsadm -a -t 192.168.60.200:80 -r 172.17.1.2:80 -m
+ipvsadm -a -t 192.168.60.200:80 -r 172.17.2.3:80 -m
+```
+
+iptables的特性ipvs都支持，兼容network policy,依赖iptables做snat和访问控制
+
+
+Iptables vs. IPVS
+
+iptables:
+1. 灵活，功能强大
+2. 在prerouting,postrouting,forward,input,output不同阶段都能对包进行操作
+IPVS:
+1. 更好的性能（hash vs chain)
+2. 更多的负载均衡算法（rr,wrr,lc,wlc,ip hash...)
+3. 连接保持：ipvs service 更新期间，保持连接不断开
+4. 预先加载内核模：nf_conntrack_ipv4,ip_vs,ip_vs_rr,ip_vs_wrr,ip_vs_sh...
+5. echo 1 > /proc/sys/net/ipv4/vs/conntrack
+
+为什么是需要iptables:  
+因为我们访问了一层service ip!  
+Node ip-> service ip(gateway)->C
+
+客户端：（node ip,service ip),期望：（service ip,node ip)
+但实际上，经过ipvs一层转发，包地址变成了（Node ip,C)
+服务端发出：（C，node ip)->这个包的源/目的地址与客户端期望的不一样！故将被丢弃，因此，需要一次SNAT(masquerable)!
+(node ip,service ip)->(ipvs director ip,c)
+
+这是为什么ipvs nat模式要求回程报文必须经过director!
+为什么Container A -> Cluster IP -> Container B?
+
+
+IPSet 把O(N)的iptables 规则降为O(1),ipset支持“增量“式增/删/改，而非iptables式全量更新，可以做白名单,但是无法做dnat
+```bash
+ipset create kube-loop-back hash:ip,port,ip
+ipset add kube-loop-back 192.168.1.1,udp:53,192.168.1.1
+ipset add kube-loop-back 192.168.1.2,udp:53,192.168.1.2
+
+iptables -t net -A POSTROUTING -m set --match-set kube-loop-back dst,dst,src -j MASQUERADEOUTING
+
+```
+
+
+---
 
