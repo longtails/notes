@@ -303,6 +303,15 @@ CONTAINER ID        IMAGE               COMMAND             CREATED             
 ```
 
 ---
+
+上述结果，显示DIND容器重启后，没有把链码也启动，但这意味着这个方案的不可靠性了吗？  
+没有，Fabric在调用链码的时候会首先检查链码是否处于Running状态，若没有，则先启动链码容器，再调用链码，这部分可见Fabric代码fabric/core/chaincode/chaincode_support.go/Invoke函数.
+```
+func (cs *ChaincodeSupport) Invoke(ctxt context.Context, cccid *ccprovider.CCContext, spec ccprovider.ChaincodeSpecGetter) (*pb.ChaincodeMessage, error) 
+```
+
+
+---
 graph-easy
 ```
 [job:chaincodeinstantiate(peer client)]--> [deploy:org1peer1(Peer server)] {flow:south;}
