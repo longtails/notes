@@ -29,5 +29,6 @@ var mspTypeStrings []string = []string{"bccsp", "idemix"}
 
 
 
+https://wge4v65y.mirror.aliyuncs.com
 
 

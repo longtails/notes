@@ -20,6 +20,7 @@ peer chaincode instantiate -o orderer.example.com:7050 -C mychannel -n mycc1 -v 
 peer/chaincode/common.go
 
 
+./bin/peer  chaincode query -C mychannel -n mycc -c '{"Args":["query","a"]}' --serverless
 
 launching chaincode!
 execute proposal!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -243,3 +244,12 @@ lscc：lifecycle system chaincode
 escc：endorser system chaincode
 vscc：validator system chaincode
 qscc：querier system chaincode
+
+
+
+
+
+
+
+----
+
