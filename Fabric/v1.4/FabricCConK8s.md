@@ -119,4 +119,16 @@ path and header: /images/registry:5000/nginx/push?registry=127.0.0.1%3A5000&tag=
 //获取镜像仓库中的镜像
 curl -X GET "http://registry:5000/v2/_catalog"
 
+//获取指定镜像的tag列表
+➜  ~ curl -X GET "http://registry:5000/v2/nginx/tags/list"
+{"name":"nginx","tags":["1.12","latest","1.11"]}
+➜  ~
+
 ```
+query:
+
+利用registry manifest完成镜像的检查
+```bash
+curl -X GET "http://registry:5000/v2/nginx/manifests/1.12"
+```
+
