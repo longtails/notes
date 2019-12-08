@@ -176,3 +176,6 @@ func isDockerImageInRegistry(registryAddress,name,tag string)error{
 }
 
 ```
+
+
+goland 编译时某些库找不到，但是系统终端上打开代理时可以编译的，这里可以用go mod vendor打包成vendor依赖，方便ide使用，就不需要ide代理翻墙了
