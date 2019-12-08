@@ -277,3 +277,8 @@ d626a8ad97a1: Layer already exists
 Process finished with exit code 0
 
 ```
+
+
+---
+
+docker images --filter=reference="hello:1.1"
