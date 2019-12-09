@@ -81,3 +81,16 @@ demo-deployment   2/2     2            2           7s
 ➜  create-update-delete-deployment git:(7e43eff7) ✗
 
 ```
+
+
+
+
+### 需要解决一个问题，版本不匹配的问题
+
+1. 将client-go切换到和kubernetes对应的版本
+2. 测试client-go/example,并记录其go.mod下依赖版本
+3. 将client-go/example复制到新package下测试,并将其依赖指定为client-go下的版本
+4. 所有依赖指定正确后可以正常运行,操作k8s
+
+详见《k8s-client-go依赖问题解决》
+
