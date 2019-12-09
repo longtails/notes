@@ -243,7 +243,7 @@ go mod edit -require="k8s.io/client-go@kubernetes-1.14.6"
 go mod edit -require="k8s.io/api@v0.0.0-20190816222004-e3a6b8045b0b"
 go mod edit -require="k8s.io/apimachinery@v0.0.0-20190816221834-a9f1d8a9c101"
 go mod edit -require="k8s.io/utils@v0.0.0-20190221042446-c2654d5206da"
-go mod edit -require="sigs.k8s.io/yaml@v1.1.0
+go mod edit -require="sigs.k8s.io/yaml@v1.1.0"
 ```
 
 
