@@ -33,7 +33,7 @@ func (vm *DockerVM) Start(ccid ccintf.CCID, args, env []string, filesToUpload ma
 	err = vm.createContainer(client, imageName, containerName, args, env, attachStdout)
 	if err == docker.ErrNoSuchImage {
         //没有对应镜像，通过builder创建
-        //fabric cc install的时候会创建镜像，这里是在install没有正确创建镜像之后，再补一个,镜像创建的部分看peer install,也就是不用install也可以实例化
+        //fabric cc 实例化时启动链码容器，这里的处理情况，主要针对服务重启后，链码可以直接用，不用重新build
         //builder来自于
 		reader, err := builder.Build()
 		if err != nil {
