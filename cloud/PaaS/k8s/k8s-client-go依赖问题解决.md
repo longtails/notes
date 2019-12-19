@@ -137,6 +137,15 @@ go mod edit -require="k8s.io/client-go@kubernetes-v1.14.6"
 go mod edit -require="k8s.io/api@v0.0.0-20190816222004-e3a6b8045b0b"
 go mod edit -require="k8s.io/utils@v0.0.0-20190221042446-c2654d5206da"
 ```
+```bash
+     k8s.io/api v0.0.0-20190816222004-e3a6b8045b0b
+     k8s.io/apimachinery v0.0.0-20190816221834-a9f1d8a9c101
+     k8s.io/client-go v11.0.1-0.20190820062731-7e43eff7c80a+incompatible
+     k8s.io/klog v1.0.0 // indirect
+     k8s.io/utils v0.0.0-20190221042446-c2654d5206da // indirect
+     sigs.k8s.io/yaml v1.1.0 // indirect
+```
+     go mod edit -require="k8s.io/client-go@v11.0.1-0.20190820062731-7e43eff7c80a+incompatible"
 
 再测试
 ```bash
