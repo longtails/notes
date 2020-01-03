@@ -1,0 +1,24 @@
+
+
+@startuml 20200103-gitlearn-gitstruct
+object head
+head : 存储着分支上的一个位置，类似于一个指针
+object refs_heads_master
+refs_heads_master : 记录着master分支上的commit快照
+object commit 
+commit : tree快照信息、作者和提交者信息
+object tree 
+tree : add后blob对象的快照信息
+object blob1 
+blob1 : 存储这文件信息
+object blob2
+blob2 : 存储这文件信息
+    
+    head --|>refs_heads_master
+    refs_heads_master --|> commit
+    commit --|> tree
+    tree --|> blob1 
+    tree --|> blob2
+@enduml
+
+
