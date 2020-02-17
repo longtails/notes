@@ -409,6 +409,12 @@ slave1|192.168.99.121
 
 
 
+---
+其他，重启集群，需要清理cni
+```bash
+rm -rf /var/lib/cni/flannel/* && rm -rf /var/lib/cni/networks/cbr0/* && ip link delete cni0  
+```
+
 参考:
 
 1. [永久关闭交换空间](https://forum.ubuntu.com.cn/viewtopic.php?t=64604)   
@@ -419,3 +425,5 @@ slave1|192.168.99.121
 6. [kubectl exec return error: unable to upgrade connection: pod does not exist /sig-contributor-experience-bugs #63702](https://github.com/kubernetes/kubernetes/issues/63702)
 7. [addr: "cni0" already has an IP address different from 10.244.1.1/24](https://www.cnblogs.com/jiuchongxiao/p/8942080.html)
 8. [linux终端代理配置](https://github.com/longtails/notes/blob/master/Linux/Linux%E7%BB%88%E7%AB%AFv2ray%E4%BB%A3%E7%90%86.md)
+9. [kubeadm安装kubernetes V1.11.1 集群](https://www.cnblogs.com/cocowool/p/kubeadm_install_kubernetes.html)
+10. [极运维|修复K8S节点双网卡不可连外网](http://blog.geohey.com/ji-yun-wei-xiu-fu-xu-ni-wang-qia-bu-ke-lian-wai-wang/)
