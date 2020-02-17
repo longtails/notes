@@ -410,9 +410,10 @@ slave1|192.168.99.121
 
 
 ---
-其他，重启集群，需要清理cni
+其他，重启集群，需要清理cni、etcd
 ```bash
 rm -rf /var/lib/cni/flannel/* && rm -rf /var/lib/cni/networks/cbr0/* && ip link delete cni0  
+rm -rf /var/lib/etcd
 ```
 
 参考:
