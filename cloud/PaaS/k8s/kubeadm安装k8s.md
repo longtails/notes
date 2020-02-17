@@ -1,6 +1,21 @@
 ### kubeadm安装k8s
 
 
+之前的博客记录着断断续续的问题，有很多其实是理解上的问题，比如kubelet的配置管理，如果用kubeadm来管理，就应使用apt源的方式安装k8s tools，而不是手动下载二进制文件，否则kubelet的systemctl service就是空的需要手动配置很麻烦，再比如主机有多张网卡，需要通过apiserver-adverstied参数指定，公有云的虚拟主机没有公网ip的网卡，所以k8s就不能绑定公网ip而不能混合部署，若要混合部署则需要准备一块配置ip的网卡，而不是公有云的NAT IP。这次希望完整的记录用kubeadm安装k8s集群的过程。
+
+---
+环境:macos、virtualbox、ubuntu18.04
+每个虚拟机配置两个网卡一个NAT用于访问公网、一个hostonly ip用于mac终端ssh连接vm，并用于集群之间的连接，相当于公有云下虚拟子网的私有IP。
+
+架构安排,一个master一个slave节点，通信选择flannel插件
+
+name|ip
+---|---
+master|192.168.99.111
+slave1|192.168.99.121
+
+
+---
 
 架构安排,一个master一个slave节点，通信选择flannel插件
 
@@ -403,3 +418,4 @@ slave1|192.168.99.121
 5. [Creating a single master cluster with kubeadm](https://v1-14.docs.kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/)
 6. [kubectl exec return error: unable to upgrade connection: pod does not exist /sig-contributor-experience-bugs #63702](https://github.com/kubernetes/kubernetes/issues/63702)
 7. [addr: "cni0" already has an IP address different from 10.244.1.1/24](https://www.cnblogs.com/jiuchongxiao/p/8942080.html)
+8. [linux终端代理配置](https://github.com/longtails/notes/blob/master/Linux/Linux%E7%BB%88%E7%AB%AFv2ray%E4%BB%A3%E7%90%86.md)
