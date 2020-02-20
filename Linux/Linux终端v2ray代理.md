@@ -1,13 +1,12 @@
 ### Linux上网工具
 
 ```bash
-v2ray服务端--<port:1234>---v2ray客户端---<1080>---polipo---<8123>--http
+v2ray服务端--<port:1234>---v2ray客户端---<1087 http>-----http
+                                     |
+                                     +----<1080 socket5>-----socket5
 ```
-v2ray完成穿越，polipo负责将socket5转换成http。
 
-需要安装v2ray和polipo。
-
-注意先启动v2ray客户端，再启动polipo否则，会v2ray客户端会启动失败。
+v2ray服务本身就支持多种本地接口，只需配置inbounds入站协议即可。同时可以作为中转服务。
 
 ---
 **v2ray**
@@ -27,7 +26,7 @@ sudo ./go.sh --local v2ray-linux-64.zip
   ...
   "inbounds": [
     {
-      "listen": "127.0.0.1",
+      "listen": "127.0.0.1", //可以通过socks访问中转流量，127这个地址表示只为本地流量代理
       "protocol": "socks",
       "settings": {
         "ip": "",
@@ -39,7 +38,7 @@ sudo ./go.sh --local v2ray-linux-64.zip
       "port": "1080"
     },
     {
-      "listen": "127.0.0.1",
+      "listen": "127.0.0.1", //可以通过http直接访问，中转流量,只为本地流量代理
       "protocol": "http",
       "settings": {
         "timeout": 360
@@ -119,50 +118,16 @@ node@node:~$ sudo service v2ray status
            └─18917 /usr/bin/v2ray/v2ray -config /etc/v2ray/config.json
 ```
 ---
-**Polipo**
-
-1. 安装polipo，并修改配置
-```bash
-node@node:~$ sudo apt install polipo
-
-node@node:~$ cat /etc/polipo/config
-# This file only needs to list configuration variables that deviate
-# from the default values.  See /usr/share/doc/polipo/examples/config.sample
-# and "polipo -v" for variables you can tweak and further information.
-
-logSyslog = true
-logFile = /var/log/polipo/polipo.log
-
-##这些配置看v2ray桌面客户度本地的监听端口和模式
-socksParentProxy = "127.0.0.1:1080"   #必须
-socksProxyType = socks5  #必须
-proxyAddress = "0.0.0.0"  #必须
-proxyPort = 8123  #必
-
-```
-2. 重启polipo
-```bash
-node@node:~$ sudo service polipo restart
-node@node:~$ sudo service polipo status
-● polipo.service - LSB: Start or stop the polipo web cache
-   Loaded: loaded (/etc/init.d/polipo; generated)
-   Active: active (running) since Mon 2020-02-17 02:23:55 UTC; 1s ago
-     Docs: man:systemd-sysv-generator(8)
-  Process: 19536 ExecStop=/etc/init.d/polipo stop (code=exited, status=0/SUCCE
-  Process: 19542 ExecStart=/etc/init.d/polipo start (code=exited, status=0/SUC
-    Tasks: 1 (limit: 2260)
-   CGroup: /system.slice/polipo.service
-
-```
-
----
 **http代理**
+
+注意我们在Linux安装了v2ray，并配置了http和socket5本地代理入口。   
+在Linux终端上我们选择http进行代理
 
 1. 配置```.bashrc```文件
 ```bash
 startvpn(){
-  export http_proxy='http://127.0.0.1:8123'
-  export https_proxy='http://127.0.0.1:8123'
+  export http_proxy='http://127.0.0.1:1087'
+  export https_proxy='http://127.0.0.1:1087'
   echo "设置代理"
 }
 stopvpn(){
@@ -204,13 +169,25 @@ node@node:~$ curl ip.sb
 继续查阅资料发现v2ray本身就支持中转，且不影响中转服务器的代理，只需要添加一个入口即可。
 
 
+首先生成客户端的UID,客户端无需直接使用aws服务器上的uid。
+
+```bash
+root@node1:~# cat /proc/sys/kernel/random/uuid
+69440bb2-518e-4c9a-87d3-ee16adaee7cf
+root@node1:~# cat /proc/sys/kernel/random/uuid
+afa8c367-e6af-45b5-b398-74da2445336e
+root@node1:~# cat /proc/sys/kernel/random/uuid
+1639abee-d2a3-481e-bfd3-fafc2ca79e3e
+root@node1:~#
+```
+
 
 ```bash
 {
   ...
   "inbounds": [
     {
-      "listen": "127.0.0.1", //用于服务器本地代理
+      "listen": "127.0.0.1", //用于服务器本地代理,127表示只能本地代理
       "protocol": "socks",
       "settings": {
         "ip": "",
@@ -222,7 +199,7 @@ node@node:~$ curl ip.sb
       "port": "1080"
     },
     {
-      "listen": "127.0.0.1",
+      "listen": "127.0.0.1",//本地http代理
       "protocol": "http",
       "settings": {
         "timeout": 360
@@ -230,14 +207,19 @@ node@node:~$ curl ip.sb
       "port": "1087"
     },
     {
-      "listen": "0.0.0.0", //中转配置：客户端始终此处的配置，并且可以添加多个client，加上优先级，这样可以给多个人使用
+      "listen": "0.0.0.0", //0.0.0.0表示任意来源流量，就可以作为中转服务,如果是局域网，可以设置更详细的地址
       "protocol": "vmess",
       "settings": {
-        "clients": [
+        "clients": [ //可以添加多个客户端，给多个人使用
             {
-                "id": "12345xxxxxxx",
+                "id": "69440bb2-518e-4c9a-87d3-ee16adaee7cf",//uid要
                 "alterId": 12
-            }]
+            },
+            {
+                "id": "afa8c367-e6af-45b5-b398-74da2445336e",//uid要
+                "alterId": 34
+            }
+            ]
       },
       "port": "12345"//注意配置国内服务器的安全组，打开端口
     }
@@ -296,7 +278,7 @@ node@node:~$ curl ip.sb
             "address": "中转服务器地址",
             "users": [
               {
-                "id": "12345xxxxxxxx",
+                "id": "69440bb2-518e-4c9a-87d3-ee16adaee7cf",
                 "alterId": 12,
                 "level": 0,
                 "security": "auto"
@@ -320,4 +302,6 @@ node@node:~$ curl ip.sb
 
 参考：
 1. [v2ray](https://www.jianshu.com/p/a5b6d9dc0441)  
-2. [服务器配置-polipo](https://blog.csdn.net/scylhy/article/details/84335095)
+2. [服务器端升级后无法启动(code=exited, status=255) #815](https://github.com/v2ray/v2ray-core/issues/815)
+3. [配置中转服务器](https://github.com/v2ray/v2ray-core/issues/1220)
+4. [高级配置，伪装、安全配置等](https://toutyrater.github.io/advanced/vps_relay.html)
