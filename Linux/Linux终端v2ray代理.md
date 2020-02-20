@@ -188,6 +188,134 @@ node@node:~$ curl ip.sb
 ```
 
 
+---
+**国内流量中转**
+
+之所以搞这个是因为家里的宽带影响了穿透，但是用手机热点访问没有任何问题，速度还杠杠的。所以就有了用中转服务的想法。
+
+```bash
+[v2ray client]--宽带服务商-----------no---------->gfw----->[v2ray server on aws]--->
+[v2ray client]--宽带服务商--ok-->[国内服务器]--ok-->gfw----->[v2ray server on aws]--->
+````
+
+
+一开始想用Nginx转发，直接修改v2ray客户单的目标地址，但实际上不行，失败了。原因不清楚，可能是协议的事。
+
+继续查阅资料发现v2ray本身就支持中转，且不影响中转服务器的代理，只需要添加一个入口即可。
+
+
+
+```bash
+{
+  ...
+  "inbounds": [
+    {
+      "listen": "127.0.0.1", //用于服务器本地代理
+      "protocol": "socks",
+      "settings": {
+        "ip": "",
+        "userLevel": 0,
+        "timeout": 360,
+        "udp": false,
+        "auth": "noauth"
+      },
+      "port": "1080"
+    },
+    {
+      "listen": "127.0.0.1",
+      "protocol": "http",
+      "settings": {
+        "timeout": 360
+      },
+      "port": "1087"
+    },
+    {
+      "listen": "0.0.0.0", //中转配置：客户端始终此处的配置，并且可以添加多个client，加上优先级，这样可以给多个人使用
+      "protocol": "vmess",
+      "settings": {
+        "clients": [
+            {
+                "id": "12345xxxxxxx",
+                "alterId": 12
+            }]
+      },
+      "port": "12345"//注意配置国内服务器的安全组，打开端口
+    }
+  ],
+  "outbounds": [
+    ...//这里可客户端配置没啥区别
+  }
+```
+
+而国内的客户单就可以使用中转服务器的配置了
+
+```bash
+{
+  ...
+  "inbounds": [
+    {
+      "listen": "127.0.0.1",
+      "protocol": "socks",
+      "settings": {
+        "ip": "",
+        "userLevel": 0,
+        "timeout": 360,
+        "udp": false,
+        "auth": "noauth"
+      },
+      "port": "1080"
+    },
+    {
+      "listen": "127.0.0.1",
+      "protocol": "http",
+      "settings": {
+        "timeout": 360
+      },
+      "port": "1087"
+    }
+  ],
+  "outbounds": [
+    {
+      "protocol": "vmess",
+      "streamSettings": {
+        "tcpSettings": {
+          "header": {
+            "type": "none"
+          }
+        },
+        "tlsSettings": {
+          "allowInsecure": true
+        },
+        "security": "none",
+        "network": "tcp"
+      },
+      "tag": "agentout",
+      "settings": {
+        "vnext": [
+          {
+            "address": "中转服务器地址",
+            "users": [
+              {
+                "id": "12345xxxxxxxx",
+                "alterId": 12,
+                "level": 0,
+                "security": "auto"
+              }
+            ],
+            "port": 12345
+          }
+        ]
+      }
+    },
+    ...
+  ],
+  "routing": {
+    ...
+  }
+```
+
+这时就可以穿透了。
+
 
 
 参考：
