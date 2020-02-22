@@ -201,3 +201,27 @@ root@hw1:~#
 参考  
 [kubernetes-sigs/etcdadm](https://github.com/kubernetes-sigs/etcdadm)    
 [fix #77: add `--listen-address` and --advertise-address` #94](https://github.com/kubernetes-sigs/etcdadm/pull/94)  
+
+
+
+---
+
+[etcd查看集群状态,检查leader](https://github.com/etcd-io/etcd/issues/9417)
+
+```etcdctl.sh --endpoints=https://192.168.0.43:2379,https://10.0.0.12:2379,https://10.0.0.13:2379  endpoint status -w table --cluster ```
+```bash
+root@node2:~# etcdctl.sh --endpoints=https://192.168.0.43:2379,https://10.0.0.12:2379,https://10.0.0.13:2379  member list
+51c9fc10a9d0072a, started, hw2, https://10.0.0.12:2380, https://10.0.0.12:2379
+7d607507f758d043, started, node2, https://192.168.0.43:2380, https://192.168.0.43:2379
+93fc1c0cac166cb8, started, hw3, https://10.0.0.13:2380, https://10.0.0.13:2379
+root@node2:~# etcdctl.sh --endpoints=https://192.168.0.43:2379,https://10.0.0.12:2379,https://10.0.0.13:2379  endpoint status -w table --cluster
++---------------------------+------------------+---------+---------+-----------+-----------+------------+
+|         ENDPOINT          |        ID        | VERSION | DB SIZE | IS LEADER | RAFT TERM | RAFT INDEX |
++---------------------------+------------------+---------+---------+-----------+-----------+------------+
+|    https://10.0.0.12:2379 | 51c9fc10a9d0072a |   3.3.8 |   20 kB |     false |        19 |         15 |
+| https://192.168.0.43:2379 | 7d607507f758d043 |   3.3.8 |   20 kB |     false |        19 |         15 |
+|    https://10.0.0.13:2379 | 93fc1c0cac166cb8 |   3.3.8 |   20 kB |      true |        19 |         15 |
++---------------------------+------------------+---------+---------+-----------+-----------+------------+
+root@node2:~#
+
+```
